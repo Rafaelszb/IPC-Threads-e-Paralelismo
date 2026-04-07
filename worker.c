@@ -105,7 +105,7 @@ void* worker_thread(void* arg) {
                 }
             }
         }
-        //bloq mutex e finaliza task
+        //bloq mutex e finaliza
         pthread_mutex_lock(&done_lock);
         remaining_tasks--;
 
@@ -190,7 +190,9 @@ int main(int argc, char** argv) {
         t.row_end = (i + bloco > img.h) ? img.h : i + bloco;
 
         enqueue(t);
+        pthread_mutex_lock(&done_lock);
         remaining_tasks++;
+        pthread_mutex_unlock(&done_lock);
     }
 
     // espera todas terminarem
