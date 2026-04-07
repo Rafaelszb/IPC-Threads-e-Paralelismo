@@ -1,3 +1,6 @@
+// gcc sender.c -o sender
+// ./sender canal entrada.pgm
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -47,12 +50,15 @@ int main(int argc, char** argv) {
     mkfifo(fifo, 0666);
     int fd = open(fifo, O_WRONLY);
 
-    struct PGM img = lerPGM("entrada.pgm");
+    struct PGM img = lerPGM(inpath);
 
     struct Header header;
     header.w = img.w;
     header.h = img.h;
     header.maxv = img.maxv;
+    header.mode = 0;
+    header.t1 = 0;
+    header.t2 = 0;
 
     //Envia header
     write(fd, &header, sizeof(header));
