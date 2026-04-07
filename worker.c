@@ -1,5 +1,4 @@
 // gcc worker.c -o worker -lpthread
-
 // ./worker canal saida.pgm negativo
 // ./worker canal saida.pgm slice 100 200
 
@@ -15,7 +14,7 @@
 #define SLICE 1
 #define QMAX 128
 
-// 🔹 Estruturas
+
 struct PGM {
     int w, h, maxv;
     unsigned char* data;
@@ -32,7 +31,7 @@ struct Task {
     int row_end;
 };
 
-// 🔹 Globais
+
 struct PGM img;
 struct Header header;
 
@@ -43,9 +42,12 @@ pthread_mutex_t q_lock = PTHREAD_MUTEX_INITIALIZER;
 sem_t sem_items;
 sem_t sem_space;
 
-int done = 0;
 
-// 🔹 Adiciona tarefa na fila
+pthread_mutex_t done_lock = PTHREAD_MUTEX_INITIALIZER;
+sem_t sem_done;
+int remaining_tasks = 0;
+
+
 void enqueue(struct Task t) {
     sem_wait(&sem_space);
 
@@ -57,7 +59,6 @@ void enqueue(struct Task t) {
     sem_post(&sem_items);
 }
 
-// 🔹 Remove tarefa da fila
 struct Task dequeue() {
     struct Task t;
 
@@ -73,13 +74,21 @@ struct Task dequeue() {
     return t;
 }
 
-// 🔹 Worker thread
+void apply_negative(int idx) {
+    img.data[idx] = header.maxv - img.data[idx];
+}
+
+void apply_slice(int idx) {
+    if (img.data[idx] >= header.t1 && img.data[idx] <= header.t2)
+        img.data[idx] = header.maxv;
+    else
+        img.data[idx] = 0;
+}
+
 void* worker_thread(void* arg) {
     while (1) {
-
         struct Task t = dequeue();
 
-        // condição de parada
         if (t.row_start == -1)
             break;
 
@@ -89,21 +98,27 @@ void* worker_thread(void* arg) {
                 int idx = i * img.w + j;
 
                 if (header.mode == NEGATIVO) {
-                    img.data[idx] = header.maxv - img.data[idx];
+                    apply_negative(idx);
                 }
                 else {
-                    if (img.data[idx] >= header.t1 && img.data[idx] <= header.t2)
-                        img.data[idx] = header.maxv;
-                    else
-                        img.data[idx] = 0;
+                    apply_slice(idx);
                 }
             }
         }
+        //bloq mutex e finaliza task
+        pthread_mutex_lock(&done_lock);
+        remaining_tasks--;
+
+        if (remaining_tasks == 0) {
+            sem_post(&sem_done);
+        }
+        //libera mutex
+        pthread_mutex_unlock(&done_lock);
     }
     return NULL;
 }
 
-// 🔹 Salvar imagem
+// Salva imagem
 void salvarPGM(const char* nome) {
     FILE* f = fopen(nome, "wb");
 
@@ -123,27 +138,26 @@ int main(int argc, char** argv) {
     const char* fifo = argv[1];
     const char* outpath = argv[2];
 
-    // 🔹 abrir FIFO
+    // abre FIFO
     int fd = open(fifo, O_RDONLY);
     if (fd < 0) {
         perror("FIFO");
         exit(1);
     }
 
-    // 🔹 receber header
+    // le header
     read(fd, &header, sizeof(header));
 
-    // 🔹 configurar modo
+    // configura modo
     if (strcmp(argv[3], "negativo") == 0) {
         header.mode = NEGATIVO;
-    }
-    else {
+    } else {
         header.mode = SLICE;
         header.t1 = atoi(argv[4]);
         header.t2 = atoi(argv[5]);
     }
 
-    // 🔹 receber imagem
+    // recebe img
     img.w = header.w;
     img.h = header.h;
     img.maxv = header.maxv;
@@ -154,37 +168,41 @@ int main(int argc, char** argv) {
     read(fd, img.data, size);
     close(fd);
 
-    // 🔹 inicializar semáforos
+    // inicializa semaforos
     sem_init(&sem_items, 0, 0);
     sem_init(&sem_space, 0, QMAX);
+    sem_init(&sem_done, 0, 0);
 
     int n_threads = 4;
     pthread_t threads[n_threads];
 
-    // 🔹 criar threads
+    // cria threads
     for (int i = 0; i < n_threads; i++) {
         pthread_create(&threads[i], NULL, worker_thread, NULL);
     }
 
-    // 🔹 dividir tarefas
+    // cria task
     int bloco = 50;
 
     for (int i = 0; i < img.h; i += bloco) {
         struct Task t;
         t.row_start = i;
         t.row_end = (i + bloco > img.h) ? img.h : i + bloco;
+
         enqueue(t);
+        remaining_tasks++;
     }
 
-    // 🔹 enviar tarefas de parada
+    // espera todas terminarem
+    sem_wait(&sem_done);
+
+    // mandar sinal de parada
     for (int i = 0; i < n_threads; i++) {
-        struct Task t;
-        t.row_start = -1;
-        t.row_end = -1;
+        struct Task t = {-1, -1};
         enqueue(t);
     }
 
-    // 🔹 esperar threads
+    // aguardar threads
     for (int i = 0; i < n_threads; i++) {
         pthread_join(threads[i], NULL);
     }
@@ -193,7 +211,7 @@ int main(int argc, char** argv) {
 
     free(img.data);
 
-    printf("Processamento concluído com thread pool!\n");
+    printf("Processamento concluído com sucesso!\n");
 
     return 0;
 }
