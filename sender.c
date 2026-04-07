@@ -1,5 +1,7 @@
 // gcc sender.c -o sender
 // ./sender canal entrada.pgm
+// sudo apt update
+// sudo apt install imagemagick
 
 #include <stdio.h>
 #include <stdlib.h>
