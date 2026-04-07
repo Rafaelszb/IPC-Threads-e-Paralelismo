@@ -146,7 +146,16 @@ int main(int argc, char** argv) {
     }
 
     // le header
-    read(fd, &header, sizeof(header));
+    int total = 0;
+
+while (total < sizeof(header)) {
+    int n = read(fd, ((char*)&header) + total, sizeof(header) - total);
+    if (n <= 0) {
+        perror("Erro ao ler header");
+        exit(1);
+    }
+    total += n;
+}
 
     // configura modo
     if (strcmp(argv[3], "negativo") == 0) {
@@ -165,7 +174,16 @@ int main(int argc, char** argv) {
     int size = img.w * img.h;
     img.data = malloc(size);
 
-    read(fd, img.data, size);
+    total = 0;
+
+    while (total < size) {
+    int n = read(fd, img.data + total, size - total);
+    if (n <= 0) {
+        perror("Erro ao ler imagem");
+        exit(1);
+    }
+    total += n;
+    }
     close(fd);
 
     // inicializa semaforos
