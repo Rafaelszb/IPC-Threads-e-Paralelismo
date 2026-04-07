@@ -28,7 +28,9 @@ struct PGM lerPGM(const char* nome) {
     }
 
     struct PGM img;
+    char tipo[3];
 
+    fscanf(f, "%s", tipo);
     fscanf(f, "%d %d", &img.w, &img.h);
     fscanf(f, "%d", &img.maxv);
     fgetc(f);
@@ -39,6 +41,7 @@ struct PGM lerPGM(const char* nome) {
     fclose(f);
     return img;
 }
+
 
 int main(int argc, char** argv) {
     
