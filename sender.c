@@ -17,6 +17,10 @@ struct PGM {
 
 struct PGM lerPGM(const char* nome) {
     FILE* f = fopen(nome, "rb");
+    if (!f) {
+    perror("Erro ao abrir imagem");
+    exit(1);
+    }
 
     struct PGM img;
     char tipo[3];
