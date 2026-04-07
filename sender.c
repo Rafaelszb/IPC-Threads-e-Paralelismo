@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     const char* inpath = argv[2];
     
     mkfifo(fifo, 0666);
-    int fd = open("pipe", O_WRONLY);
+    int fd = open(fifo, O_WRONLY);
 
     struct PGM img = lerPGM("entrada.pgm");
 
