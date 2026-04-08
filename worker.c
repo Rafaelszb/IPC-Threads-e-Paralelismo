@@ -46,6 +46,7 @@ sem_t sem_space;
 pthread_mutex_t done_lock = PTHREAD_MUTEX_INITIALIZER;
 sem_t sem_done;
 int remaining_tasks = 0;
+int n_threads = 4;
 
 
 void enqueue(struct Task t) {
@@ -191,7 +192,6 @@ while (total < sizeof(header)) {
     sem_init(&sem_space, 0, QMAX);
     sem_init(&sem_done, 0, 0);
 
-    int n_threads = 4;
     pthread_t threads[n_threads];
 
     // cria threads
@@ -229,6 +229,10 @@ while (total < sizeof(header)) {
 
     salvarPGM(outpath);
 
+    sem_destroy(&sem_items);
+    sem_destroy(&sem_space);
+    sem_destroy(&sem_done);
+    
     free(img.data);
 
     printf("Processamento concluído com sucesso!\n");
